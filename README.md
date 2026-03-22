@@ -1,117 +1,106 @@
-# Republic Dual-Node Master Guide: Validator + GPU Worker 🚀
+🚀 Republic Dual-Node Master Guide: Validator + GPU Worker
+This guide provides a comprehensive, step-by-step walkthrough for setting up a Republic Validator and a Synced GPU Worker on a single machine using WSL2 and an NVIDIA GPU.
 
-This guide provides a step-by-step walkthrough for setting up a **Republic Validator** and a **Synced GPU Worker** on a single machine using WSL2 and an NVIDIA GPU.
+🛠 Prerequisites
+Before starting, ensure your system meets these requirements:
 
----
+OS: Windows 10/11 with WSL2 (Ubuntu 22.04) installed.
 
-## 🛠 Prerequisites
-* **OS:** Windows 10/11 with [WSL2 (Ubuntu 22.04)](https://apps.microsoft.com/store/detail/ubuntu-22043-lts/9PN20MSR04DW).
-* **GPU:** NVIDIA (RTX 3060 12GB or higher recommended).
-* **Software:** * [Docker Desktop](https://www.docker.com/products/docker-desktop/) (Enable "WSL Integration" in Settings).
-    * [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html).
+GPU: NVIDIA (RTX 3060 12GB or higher recommended).
 
----
+Software: * Docker Desktop (Enable "WSL Integration" in Settings).
 
-## 🏗 Phase 1: Validator Setup (The Blockchain Node)
+NVIDIA Container Toolkit (To allow Docker to access your GPU).
 
-### 1. Install Republic Binary
-```bash
+Python 3.10+ and pip installed inside WSL.
+
+🏗 Phase 1: Validator Node Setup (The Blockchain)
+The Validator handles consensus and submits your work to the network.
+
+1. Install Republic Binary
+Bash
+# Create a directory for Republic
+mkdir -p ~/republic && cd ~/republic
+
+# Download and install the binary
 wget https://republic-binary-link.com/republicd
 chmod +x republicd
 sudo mv republicd /usr/local/bin/
-
-
-### 2. Initialize Node
-Replace YourMoniker with your node name (e.g., ROCKYREPUBLICNODE).
-
-```Bash
-republicd init YourMoniker --chain-id republic-testnet-1
-3. Create/Recover Wallet
-Keep your seed phrase safe!
+2. Initialize the Node
+Replace ROCKYREPUBLICNODE with your own moniker.
 
 Bash
+republicd init ROCKYREPUBLICNODE --chain-id republic-testnet-1
+3. Create or Recover Wallet
+Bash
+# To create a NEW wallet:
 republicd keys add mywallet
-4. Syncing
-Download the latest snapshot to skip days of syncing:
+
+# To RECOVER your existing wallet:
+republicd keys add mywallet --recover
+⚠️ WARNING: Save your 24-word seed phrase in a safe place. Never share it.
+
+4. Syncing the Node
+Instead of waiting days, use a snapshot:
 
 Bash
-# Example snapshot command (Check official Discord for latest link)
-wget https://snapshots.republic.ai/latest.tar.lz4 | lz4 -d | tar -x -C ~/.republicd
-5. Create the Validator
-Once synced, register your node:
+# Clean old data
+republicd tendermint unsafe-reset-all --home ~/.republicd
 
+# Download and extract snapshot (Check Discord for the latest URL)
+wget -O snapshot.tar.lz4 https://snapshots.republic.ai/latest.tar.lz4
+lz4 -d snapshot.tar.lz4 | tar -x -C ~/.republicd
+5. Launch the Node
 Bash
-republicd tx staking create-validator \
-  --amount=1000000arai \
-  --pubkey=$(republicd tendermint show-validator) \
-  --moniker="YourMoniker" \
-  --chain-id=republic-testnet-1 \
-  --commission-rate="0.10" \
-  --from=mywallet
+republicd start
 🧠 Phase 2: GPU Worker Setup (The AI Engine)
-The GPU Worker executes AI tasks assigned to your validator.
+The GPU Worker executes the heavy AI tasks.
 
 1. Install Python Dependencies
 Bash
 sudo apt update && sudo apt install python3-pip -y
-pip3 install requests flask
-2. Configure the Worker
-The local_worker.py script waits for your Validator to drop a job file, then uses your GPU via Docker to finish it.
+pip3 install requests flask glob2
+2. Prepare the Docker Inference Image
+Ensure Docker Desktop is running on Windows, then pull the Republic inference image:
 
-🤝 Phase 3: The Handshake (Syncing Validator & GPU)
-To earn points, your Manager (Bash) and Worker (Python) must talk to each other.
+Bash
+docker pull republic-llm-inference:latest
+🤝 Phase 3: The "Handshake" (Syncing Both Nodes)
+This is the secret to getting a high RESULT count. We connect the Manager to the Worker.
 
-1. Start the Worker (Brain)
+1. Start the GPU Worker (Brain)
+Run the local_worker.py script (code provided below). It will generate a Cloudflare URL.
+
 Bash
 python3 local_worker.py
-Copy the Cloudflare URL (e.g., https://lesson-maiden.trycloudflare.com).
+Copy the link that looks like: https://lesson-maiden.trycloudflare.com
 
 2. Start the Manager (Muscle)
-Edit your vps_worker_multi.sh and paste that Cloudflare URL into the TUNNEL_URL section. Then run:
+Open vps_worker_multi.sh and update the TUNNEL_URL with your new link. Then start mining:
 
 Bash
-./vps_worker_multi.sh 5
-📊 Monitoring & Performance
-Check Success: Look for ✅ Job Complete in your terminal.
+./vps_worker_multi.sh 3
+Note: For an RTX 3060, 3 slots is the "Sweet Spot" to avoid timeouts.
 
-Dashboard: Your RESULT count on points.republicai.io should update every 30-60 mins.
+📂 Required Scripts
+File 1: local_worker.py
+Copy this code into a file named local_worker.py.
 
-VRAM Management: If your RTX 3060 crashes, reduce your slots from 5 to 3.
-
-📂 Repository Files
-local_worker.py: Synced Python script that watches for local jobs.
-
-vps_worker_multi.sh: Multi-slot manager for job submission.
-
-Created by [YourUsername] | Supported by the Republic Community
-
-
----
-
-### **Part 3: The Actual Files for your Repo**
-
-Since you asked for the files, here is the code for the two most important ones. You can copy these into Notepad on Windows, save them with the correct names, and then upload them to GitHub.
-
-#### **File 1: `local_worker.py`**
-```python
+Python
 import os
 import time
 import subprocess
 import glob
 
 # CONFIGURATION
-VALIDATOR = "raivaloper1yhcjx7cgs2387quars36njfs4y2vsqtqlfnc6l"
-# Note: Update this URL every time you restart!
-PUBLIC_URL = "[https://your-current-url.trycloudflare.com](https://your-current-url.trycloudflare.com)"
+VALIDATOR = "YOUR_VALOPER_ADDRESS"
 BASE_DIR = os.getcwd()
 
 def run_mining():
-    print(f"Starting SYNCED Republic GPU Worker...")
-    print(f"Watching for jobs in: {BASE_DIR}")
-
+    print(f"--- Republic Synced GPU Worker Started ---")
     while True:
+        # Check for job files from Manager
         job_files = glob.glob(os.path.join(BASE_DIR, "job_*.txt"))
-        
         if not job_files:
             time.sleep(2)
             continue
@@ -121,25 +110,35 @@ def run_mining():
                 with open(job_file, 'r') as f:
                     job_id = f.read().strip()
                 
-                if not job_id: continue
-                
-                print(f"\nFound Real Job: {job_id}")
+                print(f"🚀 Processing Job: {job_id}")
                 result_file = os.path.join(BASE_DIR, f"result_{job_id}.json")
                 
+                # Execute AI Task via Docker
                 cmd = ["docker", "run", "--rm", "--gpus", "all", "republic-llm-inference:latest"]
                 result = subprocess.run(cmd, capture_output=True, text=True)
                 
                 with open(result_file, "w") as rf:
                     rf.write(result.stdout)
 
-                print(f"✅ Job {job_id} complete. Result saved!")
-                
+                print(f"✅ Job {job_id} Complete!")
                 if os.path.exists(job_file):
                     os.remove(job_file)
 
             except Exception as e:
-                print(f"Error: {e}")
+                print(f"❌ Error: {e}")
         time.sleep(1)
 
 if __name__ == "__main__":
     run_mining()
+File 2: vps_worker_multi.sh
+Copy your existing multi-slot script here. Ensure you remove your private keys or seeds before sharing!
+
+🌡️ Maintenance & Optimization
+Thermal Control: If your GPU hits 80°C, reduce the number of slots.
+
+URL Update: If you restart your PC, you must update the TUNNEL_URL in the Bash script with the new one from the Python worker.
+
+VRAM Clearing: If jobs get stuck, run:
+docker rm -f $(docker ps -aq)
+
+Created by ROCKYREPUBLICNODE | Join the Republic on Discord
