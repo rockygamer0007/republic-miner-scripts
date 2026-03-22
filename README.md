@@ -20,10 +20,11 @@ wget https://republic-binary-link.com/republicd
 chmod +x republicd
 sudo mv republicd /usr/local/bin/
 
-2. Initialize Node
+
+### 2. Initialize Node
 Replace YourMoniker with your node name (e.g., ROCKYREPUBLICNODE).
 
-Bash
+```Bash
 republicd init YourMoniker --chain-id republic-testnet-1
 3. Create/Recover Wallet
 Keep your seed phrase safe!
